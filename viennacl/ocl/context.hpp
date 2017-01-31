@@ -1,6 +1,9 @@
 #ifndef VIENNACL_OCL_CONTEXT_HPP_
 #define VIENNACL_OCL_CONTEXT_HPP_
 
+#define VIENNACL_DEBUG_ALL 1
+#define VIENNACL_DEBUG_CONTEXT 1
+
 /* =========================================================================
    Copyright (c) 2010-2016, Institute for Microelectronics,
                             Institute for Analysis and Scientific Computing,
@@ -33,6 +36,7 @@
 #include <vector>
 #include <map>
 #include <cstdlib>
+#include <sys/time.h>
 #include "viennacl/ocl/forwards.h"
 #include "viennacl/ocl/error.hpp"
 #include "viennacl/ocl/handle.hpp"
@@ -47,6 +51,19 @@ namespace viennacl
 {
 namespace ocl
 {
+
+    const std::string currentDateTime() {
+        char            fmt[64], buf[64];
+        struct timeval  tv;
+        struct tm       *tm;
+
+        gettimeofday(&tv, NULL);
+        tm = localtime(&tv.tv_sec);
+        strftime(fmt, sizeof fmt, "%Y-%m-%d %H:%M:%S.%%06u", tm);
+        snprintf(buf, sizeof buf, fmt, tv.tv_usec);
+        return buf;
+    }
+
 /** @brief Manages an OpenCL context and provides the respective convenience functions for creating buffers, etc.
   *
   * This class was originally written before the OpenCL C++ bindings were standardized.
@@ -389,7 +406,7 @@ public:
     cl_int err;
 
 #if defined(VIENNACL_DEBUG_ALL) || defined(VIENNACL_DEBUG_CONTEXT)
-    std::cout << "ViennaCL: Adding program '" << prog_name << "' with source to context " << h_ << std::endl;
+    std::cout << currentDateTime() << "ViennaCL: Adding program '" << prog_name << "' with source to context " << h_ << std::endl;
 #endif
 
     cl_program temp = 0;
@@ -400,7 +417,7 @@ public:
     if (cache_path_.size())
     {
 #if defined(VIENNACL_DEBUG_ALL) || defined(VIENNACL_DEBUG_CONTEXT)
-      std::cout << "ViennaCL: Cache at " << cache_path_ << std::endl;
+      std::cout << currentDateTime() <<  "ViennaCL: Cache at " << cache_path_ << std::endl;
 #endif
 
       std::string prefix;
@@ -411,6 +428,9 @@ public:
       std::ifstream cached((cache_path_+sha1).c_str(),std::ios::binary);
       if (cached)
       {
+#if defined(VIENNACL_DEBUG_ALL) || defined(VIENNACL_DEBUG_CONTEXT)
+          std::cout << currentDateTime() <<  "ViennaCL: cached  " << std::endl;
+#endif
         vcl_size_t len;
         std::vector<unsigned char> buffer;
 
@@ -421,14 +441,28 @@ public:
         cl_int status;
         cl_device_id devid = devices_[0].id();
         const unsigned char * bufdata = &buffer[0];
-        temp = clCreateProgramWithBinary(h_.get(),1,&devid,&len, &bufdata,&status,&err);
-        VIENNACL_ERR_CHECK(err);
+#if defined(VIENNACL_DEBUG_ALL) || defined(VIENNACL_DEBUG_CONTEXT)
+          std::cout << currentDateTime() <<  "ViennaCL: Start clCreateProgramWithBinary " << std::endl;
+#endif
+
+          temp = clCreateProgramWithBinary(h_.get(),1,&devid,&len, &bufdata,&status,&err);
+#if defined(VIENNACL_DEBUG_ALL) || defined(VIENNACL_DEBUG_CONTEXT)
+          std::cout << currentDateTime() <<  "ViennaCL: end clCreateProgramWithBinary " << std::endl;
+#endif
+          VIENNACL_ERR_CHECK(err);
       }
     }
 
     if (!temp)
     {
-      temp = clCreateProgramWithSource(h_.get(), 1, (const char **)&source_text, &source_size, &err);
+#if defined(VIENNACL_DEBUG_ALL) || defined(VIENNACL_DEBUG_CONTEXT)
+        std::cout << currentDateTime() <<  "ViennaCL: Start clCreateProgramWithSource  " << std::endl;
+#endif
+
+        temp = clCreateProgramWithSource(h_.get(), 1, (const char **)&source_text, &source_size, &err);
+#if defined(VIENNACL_DEBUG_ALL) || defined(VIENNACL_DEBUG_CONTEXT)
+        std::cout << currentDateTime() <<  "ViennaCL: End clCreateProgramWithSource  " << std::endl;
+#endif
       VIENNACL_ERR_CHECK(err);
     }
 
@@ -440,7 +474,7 @@ public:
     {
       cl_build_status status;
       clGetProgramBuildInfo(temp, devices_[0].id(), CL_PROGRAM_BUILD_STATUS, sizeof(cl_build_status), &status, NULL);
-      std::cout << "Build Status = " << status << " ( Err = " << err << " )" << std::endl;
+      std::cout << currentDateTime() <<  "Build Status = " << status << " ( Err = " << err << " )" << std::endl;
 
       char *build_log;
       size_t ret_val_size; // don't use vcl_size_t here
@@ -448,10 +482,10 @@ public:
       build_log = new char[ret_val_size+1];
       err = clGetProgramBuildInfo(temp, devices_[0].id(), CL_PROGRAM_BUILD_LOG, ret_val_size, build_log, NULL);
       build_log[ret_val_size] = '\0';
-      std::cout << "Log: " << build_log << std::endl;
+      std::cout << currentDateTime() <<  "Log: " << build_log << std::endl;
       delete[] build_log;
 
-      std::cout << "Sources: " << source << std::endl;
+      std::cout << currentDateTime() <<  "Sources: " << source << std::endl;
     }
     VIENNACL_ERR_CHECK(err);
 
